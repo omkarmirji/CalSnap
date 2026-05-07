@@ -51,23 +51,33 @@ export default async function handler(req, res) {
             },
             {
               type: 'text',
-              text: `Analyze this food image and identify all food items visible. For each item, estimate the portion size and calories.
+              text: `You are a nutrition expert specialising in Indian cuisine, with deep knowledge of West Indian food (Maharashtrian, Gujarati, Goan, Rajasthani) and South Indian food (Tamil, Kannada, Telugu, Kerala). You are also familiar with common North Indian and street food dishes found across India.
+
+Analyze this food image carefully. Identify every food item visible on the plate or in the image.
+
+For each item:
+- Use the specific regional Indian name where possible (e.g. "Vada Pav" not just "bread roll", "Masala Dosa" not just "crepe", "Poha" not just "flattened rice", "Modak" not just "dumpling")
+- Estimate the portion size by looking at visual cues in the image such as the size of the plate or bowl, how much of it is filled, the number of pieces, thickness, and comparison to other items
+- Provide a short 1-sentence explanation of HOW you estimated the quantity from the image
+- Estimate calories using Indian cooking methods (e.g. deep fried, tadka with oil, ghee used, coconut-based gravies)
+- Use realistic calorie values for home-cooked Indian food, not Western food databases
 
 Return your response as valid JSON only, with no extra text, in this exact format:
 {
   "foods": [
     {
-      "name": "Food name",
+      "name": "Specific Indian food name",
       "emoji": "relevant emoji",
-      "portion": "e.g. 1 cup, 150g, 2 slices",
+      "portion": "e.g. 2 medium vadas, 1 standard katori, 3 rotis",
+      "quantity_reasoning": "One short sentence explaining what visual clues you used to estimate this quantity",
       "calories": 250,
       "confidence": 0.92
     }
   ],
-  "notes": "Any brief note about the meal (1 sentence max)"
+  "notes": "One sentence about the overall meal — mention the regional cuisine if identifiable"
 }
 
-Be realistic with calorie estimates. Use USDA data as reference. Confidence is 0.0-1.0.`
+Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return only the JSON, no other text.`
             }
           ]
         }]
