@@ -1,0 +1,8 @@
+{
+  "name": "calsnap",
+  "version": "1.0.0",
+  "description": "AI-powered calorie tracker",
+  "engines": {
+    "node": "18.x"
+  }
+}
