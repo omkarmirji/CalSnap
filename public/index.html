@@ -1,109 +1,797 @@
-// api/analyze.js
-// Vercel serverless function — runs on a server, never in the browser.
-// Your OPENAI_API_KEY environment variable stays here, safe and hidden.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CalSnap — AI Calorie Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-export default async function handler(req, res) {
-  // Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  :root {
+    --green: #1a9e5f;
+    --green-light: #e6f7ef;
+    --green-mid: #2dbd74;
+    --red: #d63c3c;
+    --surface: #fafaf8;
+    --card: #ffffff;
+    --border: rgba(0,0,0,0.07);
+    --text: #1a1a18;
+    --muted: #7a7a72;
+    --light: #b5b5ac;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+    --radius: 16px;
+    --radius-sm: 10px;
   }
 
-  // CORS headers — allows your frontend to call this endpoint
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  html { scroll-behavior: smooth; }
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
-  const { imageBase64, imageType } = req.body;
-
-  if (!imageBase64 || !imageType) {
-    return res.status(400).json({ error: 'Missing imageBase64 or imageType' });
+  header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(250,250,248,0.92);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
-  // API key lives in Vercel environment variable — never exposed to browser
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Server is missing OPENAI_API_KEY. Please set it in Vercel.' });
+  .logo { display: flex; align-items: center; gap: 10px; }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--green), var(--green-mid));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
   }
 
-  try {
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${imageType};base64,${imageBase64}`,
-                detail: 'high'
-              }
-            },
-            {
-              type: 'text',
-              text: `You are a nutrition expert specialising in Indian cuisine, with deep knowledge of West Indian food (Maharashtrian, Gujarati, Goan, Rajasthani) and South Indian food (Tamil, Kannada, Telugu, Kerala). You are also familiar with common North Indian and street food dishes found across India.
+  .logo-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    letter-spacing: -0.3px;
+  }
 
-Analyze this food image carefully. Identify every food item visible on the plate or in the image.
+  .api-badge {
+    font-size: 12px;
+    background: var(--green-light);
+    color: var(--green);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
 
-For each item:
-- Use the specific regional Indian name where possible (e.g. "Vada Pav" not just "bread roll", "Masala Dosa" not just "crepe", "Poha" not just "flattened rice", "Modak" not just "dumpling")
-- Estimate the portion size by looking at visual cues in the image such as the size of the plate or bowl, how much of it is filled, the number of pieces, thickness, and comparison to other items
-- Provide a short 1-sentence explanation of HOW you estimated the quantity from the image
-- Estimate calories using Indian cooking methods (e.g. deep fried, tadka with oil, ghee used, coconut-based gravies)
-- Use realistic calorie values for home-cooked Indian food, not Western food databases
+  main {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
 
-Return your response as valid JSON only, with no extra text, in this exact format:
-{
-  "foods": [
-    {
-      "name": "Specific Indian food name",
-      "emoji": "relevant emoji",
-      "portion": "e.g. 2 medium vadas, 1 standard katori, 3 rotis",
-      "quantity_reasoning": "One short sentence explaining what visual clues you used to estimate this quantity",
-      "calories": 250,
-      "confidence": 0.92
+  .hero {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(36px, 6vw, 52px);
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    margin-bottom: 14px;
+  }
+
+  .hero h1 em { font-style: italic; color: var(--green); }
+
+  .hero p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 420px;
+    margin: 0 auto;
+    font-weight: 300;
+  }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--card);
+    animation: fadeUp 0.5s ease 0.15s both;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--green);
+    background: var(--green-light);
+  }
+
+  .upload-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    transition: transform 0.2s;
+  }
+
+  .upload-zone:hover .upload-icon { transform: scale(1.08); }
+
+  .upload-zone h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .upload-zone p {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .btn-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    background: linear-gradient(135deg, var(--green), var(--green-mid));
+    color: white;
+    border: none;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(26,158,95,0.3);
+    transition: all 0.2s;
+  }
+
+  .btn-upload:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(26,158,95,0.4);
+  }
+
+  #file-input { display: none; }
+
+  /* ── PREVIEW ── */
+  .image-preview-section {
+    display: none;
+    margin-top: 28px;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .image-preview-section.visible { display: block; }
+
+  .preview-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 16px;
+  }
+
+  .preview-image-wrap { position: relative; }
+
+  .preview-image-wrap img {
+    width: 100%;
+    height: 360px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .preview-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.5));
+    padding: 24px 20px 16px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .preview-filename { font-size: 13px; color: rgba(255,255,255,0.8); }
+
+  .btn-change {
+    font-size: 13px;
+    color: white;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: background 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .btn-change:hover { background: rgba(255,255,255,0.35); }
+
+  .btn-analyze {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--green), var(--green-mid));
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(26,158,95,0.35);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-analyze:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(26,158,95,0.45); }
+  .btn-analyze:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* ── ANALYZING ── */
+  .analyzing-card {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    box-shadow: var(--shadow-md);
+    margin-top: 28px;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .analyzing-card.visible { display: block; }
+
+  .pulse-ring {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--green-light);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    position: relative;
+    font-size: 28px;
+  }
+
+  .pulse-ring::before {
+    content: '';
+    position: absolute; inset: -8px;
+    border-radius: 50%;
+    border: 2px solid var(--green);
+    opacity: 0;
+    animation: pulse 1.8s ease-out infinite;
+  }
+
+  .pulse-ring::after {
+    content: '';
+    position: absolute; inset: -18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--green);
+    opacity: 0;
+    animation: pulse 1.8s ease-out 0.4s infinite;
+  }
+
+  @keyframes pulse {
+    0% { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.4); }
+  }
+
+  .analyzing-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .analyzing-sub { font-size: 14px; color: var(--muted); font-weight: 300; }
+
+  .progress-bar-wrap {
+    margin: 24px auto 0;
+    max-width: 280px;
+    height: 4px;
+    background: var(--green-light);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--green-mid));
+    border-radius: 999px;
+    width: 0%;
+    animation: progressFill 3s ease-out forwards;
+  }
+
+  @keyframes progressFill {
+    0%  { width: 0%; }
+    50% { width: 70%; }
+    90% { width: 88%; }
+    100% { width: 92%; }
+  }
+
+  /* ── RESULTS ── */
+  .results-section {
+    display: none;
+    margin-top: 28px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .results-section.visible { display: block; }
+
+  .total-card {
+    background: linear-gradient(135deg, var(--green), var(--green-mid));
+    border-radius: var(--radius);
+    padding: 28px;
+    color: white;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(26,158,95,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .total-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .total-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .total-number {
+    font-family: 'Instrument Serif', serif;
+    font-size: 64px;
+    line-height: 1;
+    margin-bottom: 4px;
+    letter-spacing: -1px;
+  }
+
+  .total-unit { font-size: 20px; opacity: 0.8; }
+
+  .total-meta { font-size: 13px; opacity: 0.7; margin-top: 12px; font-weight: 300; }
+
+  .calorie-level {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 14px;
+  }
+
+  .foods-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .food-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .food-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: var(--shadow-sm);
+    animation: fadeSlideIn 0.4s ease both;
+  }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .food-emoji {
+    font-size: 28px;
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface);
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .food-info { flex: 1; min-width: 0; }
+
+  .food-name {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .food-portion { font-size: 13px; color: var(--muted); font-weight: 300; }
+  .food-reasoning { font-size: 12px; color: var(--light); font-weight: 300; margin-top: 3px; line-height: 1.4; font-style: italic; }
+
+  .food-calories { text-align: right; flex-shrink: 0; }
+
+  .food-cal-number {
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .food-cal-label { font-size: 11px; color: var(--light); }
+
+  .confidence-bar {
+    height: 3px;
+    background: var(--surface);
+    border-radius: 999px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--green);
+  }
+
+  .actions-row { display: flex; gap: 12px; }
+
+  .btn-try-again {
+    flex: 1;
+    padding: 14px;
+    background: var(--card);
+    color: var(--text);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-try-again:hover { border-color: var(--green); color: var(--green); }
+
+  /* ── ERROR ── */
+  .error-card {
+    display: none;
+    background: var(--card);
+    border: 1px solid #fcd4d4;
+    border-radius: var(--radius);
+    padding: 28px;
+    text-align: center;
+    margin-top: 28px;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .error-card.visible { display: block; }
+  .error-icon { font-size: 40px; margin-bottom: 14px; }
+
+  .error-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    color: var(--red);
+    margin-bottom: 8px;
+  }
+
+  .error-msg { font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+
+  .btn-retry {
+    padding: 12px 28px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-retry:hover { background: #c03030; }
+
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    font-size: 13px;
+    color: var(--light);
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  footer a { color: var(--green); text-decoration: none; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 28px 16px 60px; }
+    .total-number { font-size: 52px; }
+    .actions-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🥗</div>
+    <span class="logo-name">CalSnap</span>
+  </div>
+  <span class="api-badge">Powered by GPT-4o</span>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Snap your meal,<br><em>know your calories</em></h1>
+    <p>Upload a photo of any food and AI will identify every item and estimate the total calories instantly.</p>
+  </div>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="upload-zone"
+       onclick="document.getElementById('file-input').click()"
+       ondragover="handleDragOver(event)"
+       ondragleave="handleDragLeave(event)"
+       ondrop="handleDrop(event)">
+    <span class="upload-icon">📸</span>
+    <h2>Drop your food photo here</h2>
+    <p>Or click to choose from your device</p>
+    <button class="btn-upload" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
+      Choose Photo
+    </button>
+    <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
+  </div>
+
+  <!-- Preview -->
+  <div class="image-preview-section" id="preview-section">
+    <div class="preview-card">
+      <div class="preview-image-wrap">
+        <img id="preview-img" src="" alt="Your food photo">
+        <div class="preview-overlay">
+          <span class="preview-filename" id="preview-filename"></span>
+          <button class="btn-change" onclick="resetToUpload()">Change photo</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn-analyze" id="analyze-btn" onclick="analyzeImage()">
+      <span>✨</span> Analyze Calories
+    </button>
+  </div>
+
+  <!-- Analyzing -->
+  <div class="analyzing-card" id="analyzing-card">
+    <div class="pulse-ring">🔍</div>
+    <div class="analyzing-title">Analyzing your meal…</div>
+    <div class="analyzing-sub">GPT-4o is identifying every food item on your plate</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-section" id="results-section">
+    <div class="total-card">
+      <div class="total-label">Total Calories</div>
+      <div>
+        <span class="total-number" id="total-calories">0</span>
+        <span class="total-unit">kcal</span>
+      </div>
+      <div class="total-meta" id="total-meta"></div>
+      <div class="calorie-level" id="calorie-level"></div>
+    </div>
+    <div class="foods-title">Detected Foods</div>
+    <div class="food-list" id="food-list"></div>
+    <div class="actions-row">
+      <button class="btn-try-again" onclick="resetToUpload()">📸 Analyze another meal</button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="error-card">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title">Analysis failed</div>
+    <div class="error-msg" id="error-msg">Something went wrong. Please try again.</div>
+    <button class="btn-retry" onclick="resetToUpload()">Try Again</button>
+  </div>
+</main>
+
+<footer>
+  CalSnap uses <a href="https://openai.com" target="_blank">OpenAI GPT-4o Vision</a> for food recognition.
+  Photos are processed securely and never stored.
+</footer>
+
+<script>
+  let currentImageBase64 = null;
+  let currentImageType   = null;
+
+  // ── DRAG & DROP ──
+  function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.add('dragover');
+  }
+  function handleDragLeave() {
+    document.getElementById('upload-zone').classList.remove('dragover');
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) processFile(file);
+  }
+
+  // ── FILE HANDLING ──
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+  }
+
+  function processFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target.result;
+      const [, base64] = result.split(',');
+      currentImageBase64 = base64;
+      currentImageType   = file.type;
+
+      document.getElementById('preview-img').src = result;
+      document.getElementById('preview-filename').textContent = file.name;
+      document.getElementById('upload-zone').style.display = 'none';
+      document.getElementById('preview-section').classList.add('visible');
+      hideAll();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ── ANALYZE ──
+  async function analyzeImage() {
+    if (!currentImageBase64) return;
+
+    document.getElementById('analyze-btn').disabled = true;
+    document.getElementById('analyzing-card').classList.add('visible');
+    document.getElementById('analyzing-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Restart progress bar animation
+    const fill = document.getElementById('progress-fill');
+    fill.style.animation = 'none';
+    fill.offsetHeight;
+    fill.style.animation = 'progressFill 3s ease-out forwards';
+
+    try {
+      // Calls our own serverless backend at /api/analyze
+      // The backend holds the OpenAI key — it never touches the browser
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: currentImageBase64,
+          imageType:   currentImageType
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+
+      const parsed = await res.json();
+      showResults(parsed);
+
+    } catch (err) {
+      showError(err.message);
     }
-  ],
-  "notes": "One sentence about the overall meal — mention the regional cuisine if identifiable"
-}
+  }
 
-Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return only the JSON, no other text.`
-            }
-          ]
-        }]
-      })
+  // ── SHOW RESULTS ──
+  function showResults(data) {
+    document.getElementById('analyzing-card').classList.remove('visible');
+
+    const foods     = data.foods || [];
+    const totalCals = foods.reduce((s, f) => s + (f.calories || 0), 0);
+
+    document.getElementById('total-calories').textContent = totalCals.toLocaleString();
+    document.getElementById('total-meta').textContent =
+      `${foods.length} item${foods.length !== 1 ? 's' : ''} detected` +
+      (data.notes ? ' · ' + data.notes : '');
+
+    let level = '🥗 Light meal';
+    if      (totalCals >= 800) level = '🔥 Heavy meal';
+    else if (totalCals >= 500) level = '🍽️ Substantial meal';
+    else if (totalCals >= 300) level = '⚡ Moderate meal';
+    document.getElementById('calorie-level').textContent = level;
+
+    const list = document.getElementById('food-list');
+    list.innerHTML = '';
+    foods.forEach((food, i) => {
+      const item = document.createElement('div');
+      item.className = 'food-item';
+      item.style.animationDelay = `${i * 0.07}s`;
+      item.innerHTML = `
+        <div class="food-emoji">${food.emoji || '🍽️'}</div>
+        <div class="food-info">
+          <div class="food-name">${esc(food.name)}</div>
+          <div class="food-portion">${esc(food.portion || '')}</div>
+          ${food.quantity_reasoning ? `<div class="food-reasoning">🔍 ${esc(food.quantity_reasoning)}</div>` : ''}
+          <div class="confidence-bar">
+            <div class="confidence-fill" style="width:${Math.round((food.confidence||0.8)*100)}%"></div>
+          </div>
+        </div>
+        <div class="food-calories">
+          <div class="food-cal-number">${food.calories}</div>
+          <div class="food-cal-label">kcal</div>
+        </div>`;
+      list.appendChild(item);
     });
 
-    if (!openaiRes.ok) {
-      const err = await openaiRes.json();
-      return res.status(openaiRes.status).json({ error: err.error?.message || 'OpenAI error' });
-    }
-
-    const data = await openaiRes.json();
-    const raw = data.choices[0].message.content.trim();
-
-    // Strip markdown fences if GPT wraps the JSON
-    const jsonStr = raw
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
-
-    const parsed = JSON.parse(jsonStr);
-    return res.status(200).json(parsed);
-
-  } catch (err) {
-    console.error('Analysis error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    document.getElementById('results-section').classList.add('visible');
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-}
+
+  // ── SHOW ERROR ──
+  function showError(msg) {
+    document.getElementById('analyzing-card').classList.remove('visible');
+    document.getElementById('analyze-btn').disabled = false;
+    document.getElementById('error-msg').textContent = msg || 'Something went wrong. Please try again.';
+    document.getElementById('error-card').classList.add('visible');
+  }
+
+  // ── RESET ──
+  function resetToUpload() {
+    currentImageBase64 = null;
+    currentImageType   = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('upload-zone').style.display = '';
+    document.getElementById('preview-section').classList.remove('visible');
+    document.getElementById('analyze-btn').disabled = false;
+    hideAll();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function hideAll() {
+    ['analyzing-card','results-section','error-card'].forEach(id =>
+      document.getElementById(id).classList.remove('visible')
+    );
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+</script>
+</body>
+</html>
