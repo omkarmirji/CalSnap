@@ -23,6 +23,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing imageBase64 or imageType' });
   }
 
+  // Reject images over 10 MB (base64 decoded size)
+  if (Buffer.byteLength(imageBase64, 'base64') > 10 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Image too large. Please upload an image under 10 MB.' });
+  }
+
+  // Validate imageType is actually an image MIME type
+  if (!imageType.startsWith('image/')) {
+    return res.status(400).json({ error: 'Invalid file type. Please upload an image.' });
+  }
+
   // API key lives in Vercel environment variable — never exposed to browser
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -103,7 +113,8 @@ Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return onl
     return res.status(200).json(parsed);
 
   } catch (err) {
-    console.error('Analysis error:', err);
+    // Log only the message — never log req.body which contains image data
+    console.error('Analysis error:', err.message);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }
