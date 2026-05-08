@@ -166,7 +166,13 @@
     box-shadow: 0 6px 20px rgba(26,158,95,0.4);
   }
 
-  #file-input { display: none; }
+  #file-input {
+    position: fixed;
+    top: -100%;
+    left: -100%;
+    opacity: 0;
+    pointer-events: none;
+  }
 
   /* ── PREVIEW ── */
   .image-preview-section {
