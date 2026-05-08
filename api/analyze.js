@@ -1,4 +1,4 @@
-// api/analyze.js — pre-check + analyzer only. Judge runs separately via /api/judge.
+// api/analyze.js — food analyzer, no pre-check, no judge.
 
 const ANALYZER_PROMPT = `You are a nutrition expert specialising in Indian cuisine, with deep knowledge of West Indian food (Maharashtrian, Gujarati, Goan, Rajasthani) and South Indian food (Tamil, Kannada, Telugu, Kerala). You are also familiar with common North Indian and street food dishes found across India.
 
@@ -28,39 +28,8 @@ Return your response as valid JSON only, with no extra text, in this exact forma
 
 Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return only the JSON, no other text.`;
 
-async function callOpenAI(apiKey, messages, maxTokens = 1024) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: 'gpt-4o', max_tokens: maxTokens, temperature: 0, messages })
-  });
-  if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error?.message || 'OpenAI API error');
-  }
-  const data = await response.json();
-  return parseJSON(data.choices[0].message.content.trim());
-}
-
 function parseJSON(raw) {
   return JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim());
-}
-
-async function checkIsFood(apiKey, imageBase64, imageType) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini', max_tokens: 5, temperature: 0,
-      messages: [{ role: 'user', content: [
-        { type: 'image_url', image_url: { url: `data:${imageType};base64,${imageBase64}`, detail: 'low' } },
-        { type: 'text', text: 'Does this image contain any food or drink? Answer only: yes or no' }
-      ]}]
-    })
-  });
-  if (!response.ok) return true;
-  const data = await response.json();
-  return data.choices[0].message.content.trim().toLowerCase().startsWith('yes');
 }
 
 export default async function handler(req, res) {
@@ -71,7 +40,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { imageBase64, imageType, feedback } = req.body;
+  const { imageBase64, imageType } = req.body;
 
   if (!imageBase64 || !imageType) {
     return res.status(400).json({ error: 'Missing imageBase64 or imageType' });
@@ -87,24 +56,30 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: 'Server is missing OPENAI_API_KEY. Please set it in Vercel.' });
 
   try {
-    // Skip pre-check on retries (feedback present = retry from frontend)
-    if (!feedback) {
-      const hasFood = await checkIsFood(apiKey, imageBase64, imageType);
-      if (!hasFood) return res.status(200).json({ noFood: true });
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 1024,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:${imageType};base64,${imageBase64}`, detail: 'high' } },
+            { type: 'text', text: ANALYZER_PROMPT }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      return res.status(response.status).json({ error: err.error?.message || 'OpenAI error' });
     }
 
-    const prompt = feedback
-      ? `${ANALYZER_PROMPT}\n\nCORRECTION FROM AI JUDGE — address these issues in your revised analysis:\n${feedback}`
-      : ANALYZER_PROMPT;
-
-    const result = await callOpenAI(apiKey, [{
-      role: 'user',
-      content: [
-        { type: 'image_url', image_url: { url: `data:${imageType};base64,${imageBase64}`, detail: 'high' } },
-        { type: 'text', text: prompt }
-      ]
-    }]);
-
+    const data = await response.json();
+    const result = parseJSON(data.choices[0].message.content.trim());
     return res.status(200).json(result);
   } catch (err) {
     console.error('Analysis error:', err.message);
