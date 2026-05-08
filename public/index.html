@@ -171,7 +171,8 @@
     top: -100%;
     left: -100%;
     opacity: 0;
-    pointer-events: none;
+    width: 1px;
+    height: 1px;
   }
 
   /* ── PREVIEW ── */
@@ -694,9 +695,9 @@
     <span class="upload-icon">📸</span>
     <h2>Drop your food photo here</h2>
     <p>Or click to choose from your device</p>
-    <button class="btn-upload" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
+    <label class="btn-upload" for="file-input" onclick="event.stopPropagation()">
       Choose Photo
-    </button>
+    </label>
     <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
   </div>
 
