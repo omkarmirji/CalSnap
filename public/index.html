@@ -144,18 +144,11 @@
     margin-bottom: 20px;
   }
 
-  .upload-btns {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
   .btn-upload {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 24px;
+    padding: 12px 28px;
     background: linear-gradient(135deg, var(--green), var(--green-mid));
     color: white;
     border: none;
@@ -174,19 +167,7 @@
     box-shadow: 0 6px 20px rgba(26,158,95,0.4);
   }
 
-  .btn-upload-secondary {
-    background: transparent;
-    color: var(--green);
-    border: 1.5px solid var(--green);
-    box-shadow: none;
-  }
-
-  .btn-upload-secondary:hover {
-    background: var(--green-light);
-    box-shadow: none;
-  }
-
-  #file-input, #camera-input {
+  #file-input {
     position: fixed;
     top: -100%;
     left: -100%;
@@ -682,57 +663,6 @@
     white-space: normal;
   }
 
-  /* ── IN-PAGE CAMERA ── */
-  .camera-modal {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-  }
-
-  #camera-video {
-    flex: 1;
-    width: 100%;
-    object-fit: cover;
-  }
-
-  .camera-ui {
-    padding: 20px 32px 36px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #000;
-  }
-
-  .btn-shutter {
-    width: 72px; height: 72px;
-    border-radius: 50%;
-    background: white;
-    border: 4px solid rgba(255,255,255,0.4);
-    box-shadow: 0 0 0 3px #000, 0 0 0 6px rgba(255,255,255,0.25);
-    cursor: pointer;
-    transition: transform 0.1s;
-    flex-shrink: 0;
-  }
-
-  .btn-shutter:active { transform: scale(0.92); }
-
-  .btn-camera-cancel {
-    color: white;
-    background: transparent;
-    border: none;
-    font-size: 16px;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    padding: 8px 4px;
-    width: 80px;
-    text-align: left;
-  }
-
-  .camera-spacer { width: 80px; }
-
   @media (max-width: 480px) {
     main { padding: 28px 16px 60px; }
     .total-number { font-size: 52px; }
@@ -765,17 +695,10 @@
        ondrop="handleDrop(event)">
     <span class="upload-icon">📸</span>
     <h2>Drop your food photo here</h2>
-    <p>Or use one of the options below</p>
-    <div class="upload-btns">
-      <button class="btn-upload" onclick="event.stopPropagation(); openCamera()">
-        📷 Take Photo
-      </button>
-      <label class="btn-upload btn-upload-secondary" for="file-input" onclick="event.stopPropagation()">
-        🖼️ From Gallery
-      </label>
-    </div>
-    <!-- fallback file input used only if getUserMedia is unavailable -->
-    <input type="file" id="camera-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)">
+    <p>Or click to choose from your device</p>
+    <label class="btn-upload" for="file-input" onclick="event.stopPropagation()">
+      Select Image
+    </label>
     <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
   </div>
 
@@ -1079,8 +1002,6 @@
     currentImageBase64 = null;
     currentImageType   = null;
     document.getElementById('file-input').value = '';
-    document.getElementById('camera-input').value = '';
-    closeCamera();
     document.getElementById('upload-zone').style.display = '';
     document.getElementById('preview-section').classList.remove('visible');
     document.getElementById('analyze-btn').disabled = false;
@@ -1095,59 +1016,6 @@
     document.getElementById('judge-card').style.display = 'none';
   }
 
-  // ── IN-PAGE CAMERA (getUserMedia) ──
-  let cameraStream = null;
-
-  async function openCamera() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      // Browser doesn't support getUserMedia — fall back to file input capture
-      document.getElementById('camera-input').click();
-      return;
-    }
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false
-      });
-      const video = document.getElementById('camera-video');
-      video.srcObject = cameraStream;
-      await video.play();
-      document.getElementById('camera-modal').style.display = 'flex';
-    } catch (err) {
-      // Permission denied or hardware unavailable — fall back to file input
-      document.getElementById('camera-input').click();
-    }
-  }
-
-  function closeCamera() {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(t => t.stop());
-      cameraStream = null;
-    }
-    const video = document.getElementById('camera-video');
-    video.srcObject = null;
-    document.getElementById('camera-modal').style.display = 'none';
-  }
-
-  function capturePhoto() {
-    const video  = document.getElementById('camera-video');
-    const canvas = document.getElementById('camera-canvas');
-    canvas.width  = video.videoWidth  || 1280;
-    canvas.height = video.videoHeight || 720;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    closeCamera();
-
-    const dataURL = canvas.toDataURL('image/jpeg', 0.92);
-    currentImageBase64 = dataURL.split(',')[1];
-    currentImageType   = 'image/jpeg';
-
-    document.getElementById('preview-img').src = dataURL;
-    document.getElementById('preview-filename').textContent = 'photo.jpg';
-    document.getElementById('upload-zone').style.display = 'none';
-    document.getElementById('preview-section').classList.add('visible');
-    hideAll();
-  }
-
   function esc(str) {
     const d = document.createElement('div');
     d.textContent = str;
@@ -1155,15 +1023,5 @@
   }
 </script>
 
-<!-- In-page camera modal -->
-<div class="camera-modal" id="camera-modal" style="display:none">
-  <video id="camera-video" autoplay playsinline muted></video>
-  <div class="camera-ui">
-    <button class="btn-camera-cancel" onclick="closeCamera()">Cancel</button>
-    <button class="btn-shutter" onclick="capturePhoto()" aria-label="Capture photo"></button>
-    <div class="camera-spacer"></div>
-  </div>
-</div>
-<canvas id="camera-canvas" style="display:none"></canvas>
 </body>
 </html>
