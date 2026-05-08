@@ -45,7 +45,7 @@ Score the response on four criteria (0-100 each):
 
 overall_accuracy = (food_identification × 0.35) + (calorie_accuracy × 0.35) + (portion_accuracy × 0.20) + (item_distinction × 0.10). Round to nearest integer.
 
-Set retry_recommended to true only if overall_accuracy < 70 OR a food item is clearly misidentified.
+Set retry_recommended to true if overall_accuracy < 85 OR a food item is clearly misidentified.
 
 Return valid JSON only, no other text:
 {
@@ -76,7 +76,7 @@ async function callOpenAI(apiKey, messages, maxTokens = 1024) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({ model: 'gpt-4o', max_tokens: maxTokens, messages })
+    body: JSON.stringify({ model: 'gpt-4o', max_tokens: maxTokens, temperature: 0, messages })
   });
 
   if (!response.ok) {
@@ -109,6 +109,7 @@ async function checkIsFood(apiKey, imageBase64, imageType) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       max_tokens: 5,
+      temperature: 0,
       messages: [{
         role: 'user',
         content: [
@@ -188,8 +189,8 @@ export default async function handler(req, res) {
 
     let wasRefined = false;
 
-    // Pass 2: retry once if judge recommends it
-    if (judgment.retry_recommended) {
+    // Pass 2: retry if judge recommends it or score is below 85
+    if (judgment.retry_recommended || judgment.overall_accuracy < 85) {
       const refined = await runAnalyzer(apiKey, imageBase64, imageType, judgment.feedback_for_analyzer);
       const refinedJudgment = await runJudge(apiKey, imageBase64, imageType, refined);
       if (refinedJudgment.overall_accuracy >= judgment.overall_accuracy) {
