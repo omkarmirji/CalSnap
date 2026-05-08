@@ -539,10 +539,127 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* ── JUDGE ACCURACY CARD ── */
+  .judge-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .judge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .judge-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .accuracy-score {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .accuracy-score.high  { color: var(--green); }
+  .accuracy-score.mid   { color: #f59e0b; }
+  .accuracy-score.low   { color: var(--red); }
+
+  .score-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+
+  .score-row {
+    display: grid;
+    grid-template-columns: 150px 1fr 36px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .score-label { font-size: 13px; color: var(--muted); }
+
+  .score-bar {
+    height: 6px;
+    background: var(--surface);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .score-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s ease;
+  }
+
+  .score-fill.high { background: var(--green); }
+  .score-fill.mid  { background: #f59e0b; }
+  .score-fill.low  { background: var(--red); }
+
+  .score-pct { font-size: 13px; font-weight: 600; text-align: right; }
+
+  .judge-summary {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.5;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .refined-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+
+  /* verdict badge on food items */
+  .verdict-badge {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+
+  .verdict-badge.correct   { background: #dcfce7; color: #166534; }
+  .verdict-badge.warning   { background: #fef9c3; color: #854d0e; }
+  .verdict-badge.incorrect { background: #fee2e2; color: #991b1b; }
+
+  .food-reasoning {
+    font-size: 11px;
+    color: var(--light);
+    margin-top: 2px;
+    font-style: italic;
+    white-space: normal;
+  }
+
   @media (max-width: 480px) {
     main { padding: 28px 16px 60px; }
     .total-number { font-size: 52px; }
     .actions-row { flex-direction: column; }
+    .score-row { grid-template-columns: 120px 1fr 32px; }
   }
 </style>
 </head>
@@ -616,6 +733,39 @@
     </div>
     <div class="foods-title">Detected Foods</div>
     <div class="food-list" id="food-list"></div>
+
+    <!-- AI Judge accuracy card -->
+    <div class="judge-card" id="judge-card" style="display:none">
+      <div id="refined-chip"></div>
+      <div class="judge-header">
+        <span class="judge-title">🤖 AI Judge Verification</span>
+        <span class="accuracy-score" id="judge-overall">—</span>
+      </div>
+      <div class="score-rows">
+        <div class="score-row">
+          <span class="score-label">Food Identification</span>
+          <div class="score-bar"><div class="score-fill" id="bar-identification" style="width:0%"></div></div>
+          <span class="score-pct" id="pct-identification">—</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Calorie Accuracy</span>
+          <div class="score-bar"><div class="score-fill" id="bar-calorie" style="width:0%"></div></div>
+          <span class="score-pct" id="pct-calorie">—</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Portion Accuracy</span>
+          <div class="score-bar"><div class="score-fill" id="bar-portion" style="width:0%"></div></div>
+          <span class="score-pct" id="pct-portion">—</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Item Distinction</span>
+          <div class="score-bar"><div class="score-fill" id="bar-distinction" style="width:0%"></div></div>
+          <span class="score-pct" id="pct-distinction">—</span>
+        </div>
+      </div>
+      <div class="judge-summary" id="judge-summary"></div>
+    </div>
+
     <div class="actions-row">
       <button class="btn-try-again" onclick="resetToUpload()">📸 Analyze another meal</button>
     </div>
@@ -735,9 +885,30 @@
     else if (totalCals >= 300) level = '⚡ Moderate meal';
     document.getElementById('calorie-level').textContent = level;
 
+    // Build verdict lookup from judge item_verdicts (keyed by lowercase name)
+    const verdictMap = {};
+    if (data.judgment && data.judgment.item_verdicts) {
+      data.judgment.item_verdicts.forEach(v => {
+        verdictMap[v.name.toLowerCase()] = v;
+      });
+    }
+
     const list = document.getElementById('food-list');
     list.innerHTML = '';
     foods.forEach((food, i) => {
+      const verdict = verdictMap[food.name.toLowerCase()] || null;
+
+      let badgeClass = '', badgeIcon = '', badgeTip = '';
+      if (verdict) {
+        if (!verdict.identification_correct) {
+          badgeClass = 'incorrect'; badgeIcon = '✗'; badgeTip = verdict.notes || 'Misidentified';
+        } else if (verdict.calorie_verdict === 'accurate') {
+          badgeClass = 'correct'; badgeIcon = '✓'; badgeTip = 'Verified accurate';
+        } else {
+          badgeClass = 'warning'; badgeIcon = '~'; badgeTip = verdict.notes || 'Minor inaccuracy';
+        }
+      }
+
       const item = document.createElement('div');
       item.className = 'food-item';
       item.style.animationDelay = `${i * 0.07}s`;
@@ -754,12 +925,54 @@
         <div class="food-calories">
           <div class="food-cal-number">${food.calories}</div>
           <div class="food-cal-label">kcal</div>
-        </div>`;
+        </div>
+        ${badgeClass ? `<div class="verdict-badge ${badgeClass}" title="${esc(badgeTip)}">${badgeIcon}</div>` : ''}`;
       list.appendChild(item);
     });
 
+    // Render judge accuracy card
+    if (data.judgment) renderJudgeCard(data.judgment, data.wasRefined);
+
     document.getElementById('results-section').classList.add('visible');
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function scoreClass(n) {
+    if (n >= 80) return 'high';
+    if (n >= 60) return 'mid';
+    return 'low';
+  }
+
+  function renderJudgeCard(judgment, wasRefined) {
+    const overall = judgment.overall_accuracy || 0;
+    const scores  = judgment.scores || {};
+
+    document.getElementById('refined-chip').innerHTML = wasRefined
+      ? '<div class="refined-chip">⚡ Analysis was refined based on AI judge feedback</div>'
+      : '';
+
+    const overallEl = document.getElementById('judge-overall');
+    overallEl.textContent = overall + '%';
+    overallEl.className = `accuracy-score ${scoreClass(overall)}`;
+
+    [
+      ['bar-identification', 'pct-identification', scores.food_identification],
+      ['bar-calorie',        'pct-calorie',        scores.calorie_accuracy   ],
+      ['bar-portion',        'pct-portion',        scores.portion_accuracy   ],
+      ['bar-distinction',    'pct-distinction',    scores.item_distinction   ],
+    ].forEach(([barId, pctId, val]) => {
+      const v = val || 0;
+      const cls = scoreClass(v);
+      const barEl = document.getElementById(barId);
+      barEl.style.width = v + '%';
+      barEl.className = `score-fill ${cls}`;
+      const pctEl = document.getElementById(pctId);
+      pctEl.textContent = v + '%';
+      pctEl.style.color = cls === 'high' ? 'var(--green)' : cls === 'mid' ? '#f59e0b' : 'var(--red)';
+    });
+
+    document.getElementById('judge-summary').textContent = judgment.summary || '';
+    document.getElementById('judge-card').style.display = 'block';
   }
 
   // ── SHOW ERROR ──
@@ -786,6 +999,7 @@
     ['analyzing-card','results-section','error-card'].forEach(id =>
       document.getElementById(id).classList.remove('visible')
     );
+    document.getElementById('judge-card').style.display = 'none';
   }
 
   function esc(str) {
