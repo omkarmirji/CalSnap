@@ -860,6 +860,12 @@
       }
 
       const parsed = await res.json();
+      if (parsed.noFood) {
+        document.getElementById('analyzing-card').classList.remove('visible');
+        document.getElementById('analyze-btn').disabled = false;
+        showError('No food items detected in this image. Please upload a clear photo of a meal or dish.');
+        return;
+      }
       showResults(parsed);
 
     } catch (err) {

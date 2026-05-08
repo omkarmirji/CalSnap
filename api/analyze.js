@@ -102,6 +102,27 @@ function imageContent(imageBase64, imageType) {
   return { type: 'image_url', image_url: { url: `data:${imageType};base64,${imageBase64}`, detail: 'high' } };
 }
 
+async function checkIsFood(apiKey, imageBase64, imageType) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 5,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${imageType};base64,${imageBase64}`, detail: 'low' } },
+          { type: 'text', text: 'Does this image contain any food or drink? Answer only: yes or no' }
+        ]
+      }]
+    })
+  });
+  if (!response.ok) return true; // if pre-check fails, let the main pipeline handle it
+  const data = await response.json();
+  return data.choices[0].message.content.trim().toLowerCase().startsWith('yes');
+}
+
 async function runAnalyzer(apiKey, imageBase64, imageType, feedback = null) {
   const prompt = feedback
     ? `${ANALYZER_PROMPT}\n\nCORRECTION FROM AI JUDGE — address these issues in your revised analysis:\n${feedback}`
@@ -153,6 +174,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Pre-check: cheap gpt-4o-mini call to confirm image contains food
+    const hasFood = await checkIsFood(apiKey, imageBase64, imageType);
+    if (!hasFood) {
+      return res.status(200).json({ noFood: true });
+    }
+
     // Pass 1: analyzer
     let analyzerResult = await runAnalyzer(apiKey, imageBase64, imageType);
 
