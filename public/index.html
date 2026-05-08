@@ -610,9 +610,19 @@
     transition: width 0.8s ease;
   }
 
-  .score-fill.high { background: var(--green); }
-  .score-fill.mid  { background: #f59e0b; }
-  .score-fill.low  { background: var(--red); }
+  .score-fill.high    { background: var(--green); }
+  .score-fill.mid     { background: #f59e0b; }
+  .score-fill.low     { background: var(--red); }
+  .score-fill.loading {
+    background: linear-gradient(90deg, var(--border) 25%, var(--green-light) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    width: 65% !important;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 
   .score-pct { font-size: 13px; font-weight: 600; text-align: right; }
 
@@ -836,6 +846,24 @@
     reader.readAsDataURL(file);
   }
 
+  // ── FETCH HELPER ──
+  async function fetchJSON(url, body) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      let msg = `Server error ${res.status}`;
+      try { const e = await res.json(); msg = e.error || msg; } catch (_) {
+        if (res.status === 504 || res.status === 524) msg = 'Analysis timed out — please try again.';
+      }
+      throw new Error(msg);
+    }
+    try { return await res.json(); }
+    catch (_) { throw new Error('Analysis timed out — please try again.'); }
+  }
+
   // ── ANALYZE ──
   async function analyzeImage() {
     if (!currentImageBase64) return;
@@ -844,55 +872,72 @@
     document.getElementById('analyzing-card').classList.add('visible');
     document.getElementById('analyzing-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // Restart progress bar animation
     const fill = document.getElementById('progress-fill');
     fill.style.animation = 'none';
     fill.offsetHeight;
     fill.style.animation = 'progressFill 3s ease-out forwards';
 
     try {
-      // Calls our own serverless backend at /api/analyze
-      // The backend holds the OpenAI key — it never touches the browser
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: currentImageBase64,
-          imageType:   currentImageType
-        })
+      // ── Step 1: Analyzer — show results as soon as this returns (~9s) ──
+      const analyzerResult = await fetchJSON('/api/analyze', {
+        imageBase64: currentImageBase64,
+        imageType:   currentImageType
       });
 
-      if (!res.ok) {
-        let errMsg = `Server error ${res.status}`;
-        try {
-          const err = await res.json();
-          errMsg = err.error || errMsg;
-        } catch (_) {
-          if (res.status === 504 || res.status === 524) errMsg = 'Analysis timed out — please try again.';
-        }
-        throw new Error(errMsg);
-      }
-
-      let parsed;
-      try {
-        parsed = await res.json();
-      } catch (_) {
-        throw new Error('Analysis timed out — please try again.');
-      }
-      if (parsed.noFood) {
+      if (analyzerResult.noFood) {
         document.getElementById('analyzing-card').classList.remove('visible');
         document.getElementById('analyze-btn').disabled = false;
         showError('No food items detected in this image. Please upload a clear photo of a meal or dish.');
         return;
       }
-      showResults(parsed);
+
+      showResults(analyzerResult); // user sees food + calories immediately
+
+      // ── Step 2: Judge runs after results are visible (~2s with gpt-4o-mini) ──
+      let judgment;
+      try {
+        judgment = await fetchJSON('/api/judge', {
+          imageBase64:    currentImageBase64,
+          imageType:      currentImageType,
+          analyzerResult
+        });
+      } catch (_) {
+        document.getElementById('judge-card').style.display = 'none';
+        return;
+      }
+
+      // ── Step 3: Only retry if a food item is actually misidentified ──
+      const hasMisidentification = judgment.item_verdicts?.some(v => v.identification_correct === false);
+
+      if (hasMisidentification) {
+        showJudgeRefining();
+        try {
+          const refined = await fetchJSON('/api/analyze', {
+            imageBase64: currentImageBase64,
+            imageType:   currentImageType,
+            feedback:    judgment.feedback_for_analyzer
+          });
+          const refinedJudgment = await fetchJSON('/api/judge', {
+            imageBase64:    currentImageBase64,
+            imageType:      currentImageType,
+            analyzerResult: refined
+          });
+          updateAfterRefine(refined, refinedJudgment);
+        } catch (_) {
+          renderFoodList(analyzerResult.foods || [], buildVerdictMap(judgment));
+          renderJudgeCard(judgment, false);
+        }
+      } else {
+        renderFoodList(analyzerResult.foods || [], buildVerdictMap(judgment));
+        renderJudgeCard(judgment, false);
+      }
 
     } catch (err) {
       showError(err.message);
     }
   }
 
-  // ── SHOW RESULTS ──
+  // ── SHOW RESULTS (analyzer result only, judge loading) ──
   function showResults(data) {
     document.getElementById('analyzing-card').classList.remove('visible');
 
@@ -910,30 +955,41 @@
     else if (totalCals >= 300) level = '⚡ Moderate meal';
     document.getElementById('calorie-level').textContent = level;
 
-    // Build verdict lookup from judge item_verdicts (keyed by lowercase name)
-    const verdictMap = {};
-    if (data.judgment && data.judgment.item_verdicts) {
-      data.judgment.item_verdicts.forEach(v => {
-        verdictMap[v.name.toLowerCase()] = v;
-      });
-    }
+    renderFoodList(foods, {});
+    showJudgeLoading();
 
+    document.getElementById('results-section').classList.add('visible');
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── UPDATE RESULTS after a misidentification retry ──
+  function updateAfterRefine(data, judgment) {
+    const foods     = data.foods || [];
+    const totalCals = foods.reduce((s, f) => s + (f.calories || 0), 0);
+    document.getElementById('total-calories').textContent = totalCals.toLocaleString();
+    document.getElementById('total-meta').textContent =
+      `${foods.length} item${foods.length !== 1 ? 's' : ''} detected` +
+      (data.notes ? ' · ' + data.notes : '');
+    renderFoodList(foods, buildVerdictMap(judgment));
+    renderJudgeCard(judgment, true);
+  }
+
+  // ── RENDER FOOD LIST (with optional verdict badges) ──
+  function renderFoodList(foods, verdictMap) {
     const list = document.getElementById('food-list');
     list.innerHTML = '';
     foods.forEach((food, i) => {
       const verdict = verdictMap[food.name.toLowerCase()] || null;
-
       let badgeClass = '', badgeIcon = '', badgeTip = '';
       if (verdict) {
         if (!verdict.identification_correct) {
           badgeClass = 'incorrect'; badgeIcon = '✗'; badgeTip = verdict.notes || 'Misidentified';
         } else if (verdict.calorie_verdict === 'accurate') {
-          badgeClass = 'correct'; badgeIcon = '✓'; badgeTip = 'Verified accurate';
+          badgeClass = 'correct';  badgeIcon = '✓'; badgeTip = 'Verified accurate';
         } else {
-          badgeClass = 'warning'; badgeIcon = '~'; badgeTip = verdict.notes || 'Minor inaccuracy';
+          badgeClass = 'warning';  badgeIcon = '~'; badgeTip = verdict.notes || 'Minor inaccuracy';
         }
       }
-
       const item = document.createElement('div');
       item.className = 'food-item';
       item.style.animationDelay = `${i * 0.07}s`;
@@ -954,12 +1010,37 @@
         ${badgeClass ? `<div class="verdict-badge ${badgeClass}" title="${esc(badgeTip)}">${badgeIcon}</div>` : ''}`;
       list.appendChild(item);
     });
+  }
 
-    // Render judge accuracy card
-    if (data.judgment) renderJudgeCard(data.judgment, data.wasRefined);
+  function buildVerdictMap(judgment) {
+    const map = {};
+    (judgment.item_verdicts || []).forEach(v => { map[v.name.toLowerCase()] = v; });
+    return map;
+  }
 
-    document.getElementById('results-section').classList.add('visible');
-    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // ── JUDGE CARD STATES ──
+  function showJudgeLoading() {
+    document.getElementById('refined-chip').innerHTML = '';
+    const overall = document.getElementById('judge-overall');
+    overall.textContent = '…';
+    overall.className = 'accuracy-score';
+    ['bar-identification','bar-calorie','bar-portion','bar-distinction'].forEach(id => {
+      const el = document.getElementById(id);
+      el.style.width = '100%';
+      el.className = 'score-fill loading';
+    });
+    ['pct-identification','pct-calorie','pct-portion','pct-distinction'].forEach(id => {
+      document.getElementById(id).textContent = '…';
+      document.getElementById(id).style.color = 'var(--light)';
+    });
+    document.getElementById('judge-summary').textContent = 'AI judge is verifying the analysis…';
+    document.getElementById('judge-card').style.display = 'block';
+  }
+
+  function showJudgeRefining() {
+    document.getElementById('refined-chip').innerHTML =
+      '<div class="refined-chip">🔄 Misidentification found — refining…</div>';
+    document.getElementById('judge-summary').textContent = 'Re-analysing with corrected guidance…';
   }
 
   function scoreClass(n) {
