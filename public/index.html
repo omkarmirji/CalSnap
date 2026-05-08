@@ -144,11 +144,18 @@
     margin-bottom: 20px;
   }
 
+  .upload-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
   .btn-upload {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 28px;
+    padding: 12px 24px;
     background: linear-gradient(135deg, var(--green), var(--green-mid));
     color: white;
     border: none;
@@ -159,6 +166,7 @@
     cursor: pointer;
     box-shadow: 0 4px 16px rgba(26,158,95,0.3);
     transition: all 0.2s;
+    text-decoration: none;
   }
 
   .btn-upload:hover {
@@ -166,7 +174,19 @@
     box-shadow: 0 6px 20px rgba(26,158,95,0.4);
   }
 
-  #file-input {
+  .btn-upload-secondary {
+    background: transparent;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+    box-shadow: none;
+  }
+
+  .btn-upload-secondary:hover {
+    background: var(--green-light);
+    box-shadow: none;
+  }
+
+  #file-input, #camera-input {
     position: fixed;
     top: -100%;
     left: -100%;
@@ -694,10 +714,16 @@
        ondrop="handleDrop(event)">
     <span class="upload-icon">📸</span>
     <h2>Drop your food photo here</h2>
-    <p>Or click to choose from your device</p>
-    <label class="btn-upload" for="file-input" onclick="event.stopPropagation()">
-      Choose Photo
-    </label>
+    <p>Or use one of the options below</p>
+    <div class="upload-btns">
+      <label class="btn-upload" for="camera-input" onclick="event.stopPropagation()">
+        📷 Take Photo
+      </label>
+      <label class="btn-upload btn-upload-secondary" for="file-input" onclick="event.stopPropagation()">
+        🖼️ From Gallery
+      </label>
+    </div>
+    <input type="file" id="camera-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)">
     <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
   </div>
 
@@ -1001,6 +1027,7 @@
     currentImageBase64 = null;
     currentImageType   = null;
     document.getElementById('file-input').value = '';
+    document.getElementById('camera-input').value = '';
     document.getElementById('upload-zone').style.display = '';
     document.getElementById('preview-section').classList.remove('visible');
     document.getElementById('analyze-btn').disabled = false;
