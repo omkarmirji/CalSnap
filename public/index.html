@@ -707,29 +707,47 @@
     fill.offsetHeight;
     fill.style.animation = 'progressFill 3s ease-out forwards';
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: currentImageBase64, imageType: currentImageType })
+        body: JSON.stringify({ imageBase64: currentImageBase64, imageType: currentImageType }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         let msg = `Server error ${res.status}`;
         try { const e = await res.json(); msg = e.error || msg; } catch (_) {
-          if (res.status === 504 || res.status === 524) msg = 'Analysis timed out — please try again.';
+          if (res.status === 504 || res.status === 524) { showTimeoutMessage(); return; }
         }
         throw new Error(msg);
       }
 
       let data;
       try { data = await res.json(); }
-      catch (_) { throw new Error('Analysis timed out — please try again.'); }
+      catch (_) { showTimeoutMessage(); return; }
 
       showResults(data);
     } catch (err) {
-      showError(err.message);
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        showTimeoutMessage();
+      } else {
+        showError(err.message);
+      }
     }
+  }
+
+  // ── TIMEOUT MESSAGE ──
+  function showTimeoutMessage() {
+    document.getElementById('analyzing-card').classList.remove('visible');
+    document.getElementById('analyze-btn').disabled = false;
+    document.getElementById('error-msg').textContent = 'We were unable to analyze the image provided. Please try selecting a new image.';
+    document.getElementById('error-card').classList.add('visible');
   }
 
   // ── SHOW RESULTS ──
