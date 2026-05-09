@@ -20,13 +20,19 @@ Return your response as valid JSON only, with no extra text, in this exact forma
       "portion": "e.g. 2 medium vadas, 1 standard katori, 3 rotis",
       "quantity_reasoning": "One short sentence explaining what visual clues you used to estimate this quantity",
       "calories": 250,
+      "carbs_g": 35,
+      "protein_g": 8,
+      "fat_g": 7,
+      "glycemic_index": 65,
       "confidence": 0.92
     }
   ],
   "notes": "One sentence about the overall meal — mention the regional cuisine if identifiable"
 }
 
-Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return only the JSON, no other text.`;
+- carbs_g, protein_g, fat_g: grams for the estimated portion, using Indian cooking methods (ghee, oil, coconut) for fat.
+- glycemic_index: integer 0–100 using published GI values for Indian foods. Use mixed-meal GI when multiple ingredients combine (e.g. rice + dal lowers effective GI). If unknown, estimate conservatively.
+- Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return only the JSON, no other text.`;
 
 function parseJSON(raw) {
   return JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim());

@@ -474,6 +474,58 @@
     background: var(--green);
   }
 
+  /* ── MACROS + GI ── */
+  .macro-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .macro-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+  }
+
+  .macro-chip.carbs  { background: #fff7e6; color: #b45309; }
+  .macro-chip.protein{ background: #eff6ff; color: #1d4ed8; }
+  .macro-chip.fat    { background: #f5f3ff; color: #6d28d9; }
+
+  .gi-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+
+  .gi-badge.low    { background: #e6f7ef; color: var(--green); }
+  .gi-badge.medium { background: #fff7e6; color: #b45309; }
+  .gi-badge.high   { background: #fff1f1; color: var(--red); }
+
+  /* ── TOTAL MACROS ── */
+  .total-macros {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .total-macro-item {
+    flex: 1;
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .tm-value { display: block; font-size: 18px; font-weight: 700; line-height: 1; }
+  .tm-label { display: block; font-size: 10px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+  .tm-pct   { display: block; font-size: 11px; opacity: 0.6; margin-top: 2px; }
+
   .actions-row { display: flex; gap: 12px; }
 
   .btn-try-again {
@@ -648,6 +700,7 @@
       </div>
       <div class="total-meta" id="total-meta"></div>
       <div class="calorie-level" id="calorie-level"></div>
+      <div class="total-macros" id="total-macros"></div>
     </div>
     <div class="foods-title">Detected Foods</div>
     <div class="food-list" id="food-list"></div>
@@ -799,11 +852,24 @@
   }
 
   // ── SHOW RESULTS ──
+  function giClass(gi) {
+    if (!gi) return 'medium';
+    return gi <= 55 ? 'low' : gi <= 69 ? 'medium' : 'high';
+  }
+  function giLabel(gi) {
+    if (!gi) return 'GI —';
+    return `GI ${gi} · ${gi <= 55 ? 'Low' : gi <= 69 ? 'Medium' : 'High'}`;
+  }
+
   function showResults(data) {
     document.getElementById('analyzing-card').classList.remove('visible');
 
     const foods     = data.foods || [];
     const totalCals = foods.reduce((s, f) => s + (f.calories || 0), 0);
+    const totalCarbs   = foods.reduce((s, f) => s + (f.carbs_g   || 0), 0);
+    const totalProtein = foods.reduce((s, f) => s + (f.protein_g || 0), 0);
+    const totalFat     = foods.reduce((s, f) => s + (f.fat_g     || 0), 0);
+    const macroKcal    = totalCarbs * 4 + totalProtein * 4 + totalFat * 9 || 1;
 
     document.getElementById('total-calories').textContent = totalCals.toLocaleString();
     document.getElementById('total-meta').textContent =
@@ -815,6 +881,23 @@
     else if (totalCals >= 500) level = '🍽️ Substantial meal';
     else if (totalCals >= 300) level = '⚡ Moderate meal';
     document.getElementById('calorie-level').textContent = level;
+
+    document.getElementById('total-macros').innerHTML = `
+      <div class="total-macro-item">
+        <span class="tm-value">${Math.round(totalCarbs)}g</span>
+        <span class="tm-label">Carbs</span>
+        <span class="tm-pct">${Math.round(totalCarbs*4/macroKcal*100)}%</span>
+      </div>
+      <div class="total-macro-item">
+        <span class="tm-value">${Math.round(totalProtein)}g</span>
+        <span class="tm-label">Protein</span>
+        <span class="tm-pct">${Math.round(totalProtein*4/macroKcal*100)}%</span>
+      </div>
+      <div class="total-macro-item">
+        <span class="tm-value">${Math.round(totalFat)}g</span>
+        <span class="tm-label">Fat</span>
+        <span class="tm-pct">${Math.round(totalFat*9/macroKcal*100)}%</span>
+      </div>`;
 
     const list = document.getElementById('food-list');
     list.innerHTML = '';
@@ -830,6 +913,12 @@
           ${food.quantity_reasoning ? `<div class="food-reasoning">🔍 ${esc(food.quantity_reasoning)}</div>` : ''}
           <div class="confidence-bar">
             <div class="confidence-fill" style="width:${Math.round((food.confidence||0.8)*100)}%"></div>
+          </div>
+          <div class="macro-row">
+            <span class="macro-chip carbs">C ${food.carbs_g ?? '—'}g</span>
+            <span class="macro-chip protein">P ${food.protein_g ?? '—'}g</span>
+            <span class="macro-chip fat">F ${food.fat_g ?? '—'}g</span>
+            <span class="gi-badge ${giClass(food.glycemic_index)}">${giLabel(food.glycemic_index)}</span>
           </div>
         </div>
         <div class="food-calories">
