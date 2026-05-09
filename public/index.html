@@ -697,6 +697,30 @@
   }
 
   const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+  const MAX_PX = 1280;
+
+  function compressImage(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > MAX_PX || height > MAX_PX) {
+            if (width > height) { height = Math.round(height * MAX_PX / width); width = MAX_PX; }
+            else                { width = Math.round(width * MAX_PX / height); height = MAX_PX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          const dataURL = canvas.toDataURL('image/jpeg', 0.85);
+          resolve({ dataURL, base64: dataURL.split(',')[1], type: 'image/jpeg' });
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   function processFile(file) {
     const formatError = document.getElementById('format-error');
@@ -706,20 +730,16 @@
     }
     formatError.classList.remove('visible');
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target.result;
-      const [, base64] = result.split(',');
+    compressImage(file).then(({ dataURL, base64, type }) => {
       currentImageBase64 = base64;
-      currentImageType   = file.type;
+      currentImageType   = type;
 
-      document.getElementById('preview-img').src = result;
+      document.getElementById('preview-img').src = dataURL;
       document.getElementById('preview-filename').textContent = file.name;
       document.getElementById('upload-zone').style.display = 'none';
       document.getElementById('preview-section').classList.add('visible');
       hideAll();
-    };
-    reader.readAsDataURL(file);
+    });
   }
 
   // ── ANALYZE ──
