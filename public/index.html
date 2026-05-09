@@ -526,6 +526,13 @@
   .tm-label { display: block; font-size: 10px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
   .tm-pct   { display: block; font-size: 11px; opacity: 0.6; margin-top: 2px; }
 
+  .gi-info {
+    font-size: 12px;
+    color: var(--light);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
   .actions-row { display: flex; gap: 12px; }
 
   .btn-try-again {
@@ -704,6 +711,7 @@
     </div>
     <div class="foods-title">Detected Foods</div>
     <div class="food-list" id="food-list"></div>
+    <p class="gi-info">GI (Glycemic Index) measures how fast a food raises blood sugar — Low ≤55 is ideal, Medium 56–69 is moderate, High ≥70 causes rapid spikes.</p>
     <div class="actions-row">
       <button class="btn-try-again" onclick="resetToUpload()">📸 Analyze another meal</button>
     </div>
