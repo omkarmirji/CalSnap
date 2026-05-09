@@ -492,6 +492,20 @@
 
   .btn-try-again:hover { border-color: var(--green); color: var(--green); }
 
+  /* ── FORMAT ERROR ── */
+  .format-error {
+    display: none;
+    background: #fff5f5;
+    border: 1px solid #fcd4d4;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--red);
+    margin-bottom: 12px;
+    animation: fadeUp 0.3s ease both;
+  }
+  .format-error.visible { display: block; }
+
   /* ── ERROR ── */
   .error-card {
     display: none;
@@ -576,6 +590,11 @@
   <div class="hero">
     <h1>Snap your meal,<br><em>know your calories</em></h1>
     <p>Upload a photo of any food and AI will identify every item and estimate the total calories instantly.</p>
+  </div>
+
+  <!-- Format Error -->
+  <div class="format-error" id="format-error">
+    <span>⚠️</span> Unsupported format. Please upload a PNG, JPEG, GIF, or WebP image.
   </div>
 
   <!-- Upload Zone -->
@@ -677,7 +696,16 @@
     if (file) processFile(file);
   }
 
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
   function processFile(file) {
+    const formatError = document.getElementById('format-error');
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      formatError.classList.add('visible');
+      return;
+    }
+    formatError.classList.remove('visible');
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target.result;
@@ -808,6 +836,7 @@
     currentImageBase64 = null;
     currentImageType   = null;
     document.getElementById('file-input').value = '';
+    document.getElementById('format-error').classList.remove('visible');
     document.getElementById('upload-zone').style.display = '';
     document.getElementById('preview-section').classList.remove('visible');
     document.getElementById('analyze-btn').disabled = false;
