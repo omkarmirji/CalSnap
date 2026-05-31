@@ -1026,14 +1026,65 @@
   const SUPA_URL = 'https://qbgnjxrmimrtaqppctpe.supabase.co';
   const SUPA_KEY = 'sb_publishable_FPmLBYzJTyI36Ql3mFCxtg_Y5TX-Ld0';
 
-  function supaFetch(path, method, body) {
+  // ── AUTH ──
+  let _session = null;
+
+  async function getSession() {
+    if (_session && _session.expires_at > Date.now() / 1000 + 60) return _session;
+
+    const stored = localStorage.getItem('calsnap_session');
+    if (stored) {
+      const s = JSON.parse(stored);
+      if (s.expires_at > Date.now() / 1000 + 60) { _session = s; return s; }
+      // try refresh
+      const refreshed = await refreshSession(s.refresh_token);
+      if (refreshed) return refreshed;
+    }
+    return await signInAnonymously();
+  }
+
+  async function signInAnonymously() {
+    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=anonymous`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return null;
+    return storeSession(await res.json());
+  }
+
+  async function refreshSession(refreshToken) {
+    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return null;
+    return storeSession(await res.json());
+  }
+
+  function storeSession(data) {
+    const s = {
+      access_token:  data.access_token,
+      refresh_token: data.refresh_token,
+      user_id:       data.user.id,
+      expires_at:    Math.floor(Date.now() / 1000) + data.expires_in,
+    };
+    _session = s;
+    localStorage.setItem('calsnap_session', JSON.stringify(s));
+    return s;
+  }
+
+  // ── SUPABASE FETCH (uses session JWT, not raw anon key) ──
+  async function supaFetch(path, method, body) {
+    const session = await getSession();
+    const token = session ? session.access_token : SUPA_KEY;
     return fetch(`${SUPA_URL}/rest/v1/${path}`, {
       method,
       headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': `Bearer ${SUPA_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
+        'apikey':        SUPA_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+        'Prefer':        'return=representation',
       },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -1202,7 +1253,9 @@
       const totalProtein   = foods.reduce((s, f) => s + (f.protein_g || 0), 0);
       const totalFat       = foods.reduce((s, f) => s + (f.fat_g     || 0), 0);
 
+      const session = await getSession();
       const mealRes = await supaFetch('meals', 'POST', {
+        user_id:         session?.user_id,
         total_calories:  totalCalories,
         total_carbs_g:   +totalCarbs.toFixed(1),
         total_protein_g: +totalProtein.toFixed(1),
