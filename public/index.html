@@ -494,6 +494,7 @@
   .macro-chip.carbs  { background: #fff7e6; color: #b45309; }
   .macro-chip.protein{ background: #eff6ff; color: #1d4ed8; }
   .macro-chip.fat    { background: #f5f3ff; color: #6d28d9; }
+  .macro-chip.sugar  { background: #fff0f6; color: #be185d; }
 
   .gi-badge {
     margin-left: auto;
@@ -1013,6 +1014,7 @@
             <span class="macro-chip carbs">C ${food.carbs_g ?? '—'}g</span>
             <span class="macro-chip protein">P ${food.protein_g ?? '—'}g</span>
             <span class="macro-chip fat">F ${food.fat_g ?? '—'}g</span>
+            <span class="macro-chip sugar">🍬 ${food.sugar_g != null ? +(food.sugar_g / 4).toFixed(1) + ' tsp' : '—'}</span>
             <span class="gi-badge ${giClass(food.glycemic_index)}">${giLabel(food.glycemic_index)}</span>
           </div>
         </div>
