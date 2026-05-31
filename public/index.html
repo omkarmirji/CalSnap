@@ -957,6 +957,103 @@
     border-radius: 999px;
   }
 
+  /* ── DAILY DASHBOARD ── */
+  .day-section { margin-bottom: 32px; }
+
+  .day-summary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .day-summary-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .day-date {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+  }
+
+  .day-badge {
+    font-size: 12px;
+    background: var(--green-light);
+    color: var(--green);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .day-cal-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .day-cal-number {
+    font-family: 'Instrument Serif', serif;
+    font-size: 48px;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .day-cal-unit { font-size: 15px; color: var(--muted); font-weight: 300; }
+
+  .day-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  @media (max-width: 480px) {
+    .day-metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .day-metric {
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 12px 10px;
+    text-align: center;
+  }
+
+  .day-metric-value {
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 3px;
+  }
+
+  .day-metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .day-metric.carbs   .day-metric-value { color: #b45309; }
+  .day-metric.protein .day-metric-value { color: #1d4ed8; }
+  .day-metric.fat     .day-metric-value { color: #6d28d9; }
+  .day-metric.sugar   .day-metric-value { color: #be185d; }
+
+  .day-meals-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+
   .btn-refresh {
     font-size: 13px;
     font-weight: 600;
@@ -1553,7 +1650,16 @@
         return;
       }
 
-      body.innerHTML = meals.map(meal => buildMealGroup(meal)).join('');
+      // Group meals by calendar day
+      const byDay = {};
+      const dayOrder = [];
+      meals.forEach(meal => {
+        const key = new Date(meal.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+        if (!byDay[key]) { byDay[key] = []; dayOrder.push(key); }
+        byDay[key].push(meal);
+      });
+
+      body.innerHTML = dayOrder.map(date => buildDaySection(date, byDay[date])).join('');
     } catch (err) {
       body.innerHTML = `<div class="history-empty">
         <span>⚠️</span>
@@ -1562,9 +1668,51 @@
     }
   }
 
+  function buildDaySection(date, dayMeals) {
+    const totalCals    = dayMeals.reduce((s, m) => s + (m.total_calories  || 0), 0);
+    const totalCarbs   = dayMeals.reduce((s, m) => s + +(m.total_carbs_g  || 0), 0);
+    const totalProtein = dayMeals.reduce((s, m) => s + +(m.total_protein_g|| 0), 0);
+    const totalFat     = dayMeals.reduce((s, m) => s + +(m.total_fat_g    || 0), 0);
+    const totalSugarG  = dayMeals.reduce((s, m) =>
+      s + (m.meal_foods || []).reduce((fs, f) => fs + (f.sugar_g || 0), 0), 0);
+    const n = dayMeals.length;
+
+    return `<div class="day-section">
+      <div class="day-summary">
+        <div class="day-summary-top">
+          <div class="day-date">${date}</div>
+          <div class="day-badge">${n} meal${n !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="day-cal-row">
+          <span class="day-cal-number">${totalCals.toLocaleString()}</span>
+          <span class="day-cal-unit">kcal</span>
+        </div>
+        <div class="day-metrics">
+          <div class="day-metric carbs">
+            <div class="day-metric-value">${Math.round(totalCarbs)}g</div>
+            <div class="day-metric-label">Carbs</div>
+          </div>
+          <div class="day-metric protein">
+            <div class="day-metric-value">${Math.round(totalProtein)}g</div>
+            <div class="day-metric-label">Protein</div>
+          </div>
+          <div class="day-metric fat">
+            <div class="day-metric-value">${Math.round(totalFat)}g</div>
+            <div class="day-metric-label">Fat</div>
+          </div>
+          <div class="day-metric sugar">
+            <div class="day-metric-value">${+(totalSugarG / 4).toFixed(1)} tsp</div>
+            <div class="day-metric-label">Added Sugar</div>
+          </div>
+        </div>
+      </div>
+      <div class="day-meals-label">Meals</div>
+      ${dayMeals.map(meal => buildMealGroup(meal)).join('')}
+    </div>`;
+  }
+
   function buildMealGroup(meal) {
     const date = new Date(meal.created_at);
-    const dateStr = date.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
     const timeStr = date.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
     const foods = meal.meal_foods || [];
 
@@ -1599,7 +1747,7 @@
     return `<div class="meal-group">
       <div class="meal-group-header">
         <div>
-          <div class="meal-group-date">${dateStr} · ${timeStr}</div>
+          <div class="meal-group-date">${timeStr}</div>
           ${meal.notes ? `<div class="meal-group-meta">${esc(meal.notes)}</div>` : ''}
         </div>
         <div class="meal-group-total">${meal.total_calories ?? '—'} kcal</div>
