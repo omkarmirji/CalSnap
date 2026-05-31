@@ -1168,70 +1168,48 @@
   const SUPA_URL = 'https://qbgnjxrmimrtaqppctpe.supabase.co';
   const SUPA_KEY = 'sb_publishable_FPmLBYzJTyI36Ql3mFCxtg_Y5TX-Ld0';
 
-  // ── AUTH (Google OAuth via PKCE) ──
+  // ── AUTH (Google OAuth — direct, server-side code exchange) ──
   let _session = null;
+  let _googleClientId = null;
 
-  // PKCE helpers
-  function randomString(len) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    const arr = new Uint8Array(len);
-    crypto.getRandomValues(arr);
-    return Array.from(arr, b => chars[b % chars.length]).join('');
-  }
-
-  async function codeChallenge(verifier) {
-    const data = new TextEncoder().encode(verifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  async function getGoogleClientId() {
+    if (_googleClientId) return _googleClientId;
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    _googleClientId = cfg.googleClientId;
+    return _googleClientId;
   }
 
   async function signInWith(provider) {
-    const verifier = randomString(64);
-    const challenge = await codeChallenge(verifier);
-    sessionStorage.setItem('pkce_verifier', verifier);
-    const redirectTo = window.location.origin + '/';
-    const url = `${SUPA_URL}/auth/v1/authorize?provider=${provider}`
-      + `&code_challenge=${challenge}&code_challenge_method=S256`
-      + `&redirect_to=${encodeURIComponent(redirectTo)}`;
-
-    // open in popup so the main CalSnap URL never changes
-    const popup = window.open(url, 'calsnap_oauth', 'width=520,height=620,left=200,top=100');
-    if (!popup) {
-      // popup blocked — fall back to redirect
-      window.location.href = url;
-    }
-  }
-
-  // called when the popup lands back on our origin after OAuth
-  async function handleOAuthCallback() {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    if (!code) return false;
-
-    // if we're inside a popup, send the code to the parent and close
-    if (window.opener && window.opener !== window) {
-      window.opener.postMessage({ type: 'calsnap_oauth', code }, window.location.origin);
-      window.close();
-      return true;
-    }
-
-    // fallback: full-page redirect — exchange code directly
-    await exchangeCode(code);
-    window.history.replaceState({}, '', '/');
-    return true;
-  }
-
-  async function exchangeCode(code) {
-    const verifier = sessionStorage.getItem('pkce_verifier');
-    sessionStorage.removeItem('pkce_verifier');
-    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=pkce`, {
-      method: 'POST',
-      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
+    const clientId   = await getGoogleClientId();
+    const redirectUri = window.location.origin + '/api/auth-callback';
+    const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+      client_id:     clientId,
+      redirect_uri:  redirectUri,
+      response_type: 'code',
+      scope:         'openid email profile',
+      prompt:        'select_account',
     });
-    if (!res.ok) return null;
-    return storeSession(await res.json());
+
+    // Open in popup — main CalSnap URL never changes
+    const popup = window.open(url, 'calsnap_oauth', 'width=520,height=620,left=200,top=100');
+    if (!popup) window.location.href = url; // fallback if popup blocked
+  }
+
+  function storeSessionFromHash(p) {
+    // p is URLSearchParams from the hash set by api/auth-callback
+    const s = {
+      access_token:  p.get('access_token'),
+      refresh_token: p.get('refresh_token'),
+      user_id:       p.get('user_id'),
+      email:         p.get('email')      || '',
+      full_name:     p.get('full_name')  || '',
+      avatar_url:    p.get('avatar_url') || '',
+      expires_at:    Math.floor(Date.now() / 1000) + parseInt(p.get('expires_in') || '3600'),
+    };
+    _session = s;
+    localStorage.setItem('calsnap_session', JSON.stringify(s));
+    return s;
   }
 
   async function refreshSession(refreshToken) {
@@ -1241,17 +1219,15 @@
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
     if (!res.ok) return null;
-    return storeSession(await res.json());
-  }
-
-  function storeSession(data) {
+    const data = await res.json();
+    // Supabase refresh returns same shape; flatten to our stored format
     const s = {
       access_token:  data.access_token,
       refresh_token: data.refresh_token,
       user_id:       data.user.id,
-      email:         data.user.email || '',
-      avatar_url:    data.user.user_metadata?.avatar_url || '',
-      full_name:     data.user.user_metadata?.full_name || data.user.email || '',
+      email:         data.user.email                    || _session?.email     || '',
+      full_name:     data.user.user_metadata?.full_name || _session?.full_name || '',
+      avatar_url:    data.user.user_metadata?.avatar_url|| _session?.avatar_url|| '',
       expires_at:    Math.floor(Date.now() / 1000) + data.expires_in,
     };
     _session = s;
@@ -1273,10 +1249,10 @@
   async function signOut() {
     const s = await getSession();
     if (s) {
-      await fetch(`${SUPA_URL}/auth/v1/logout`, {
+      fetch(`${SUPA_URL}/auth/v1/logout`, {
         method: 'POST',
         headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${s.access_token}` },
-      });
+      }).catch(() => {});
     }
     _session = null;
     localStorage.removeItem('calsnap_session');
@@ -1298,28 +1274,43 @@
   }
 
   async function initAuth() {
-    // if this page loaded inside the OAuth popup, hand code to parent and close
-    const wasPopupCallback = await handleOAuthCallback();
-    if (wasPopupCallback && window.opener) return;
+    // ── Popup callback: this page loaded inside the OAuth popup ──
+    if (window.opener && window.opener !== window) {
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      if (hash.get('access_token')) {
+        const s = storeSessionFromHash(hash);
+        window.opener.postMessage({ type: 'calsnap_session', session: s }, window.location.origin);
+        window.close();
+        return;
+      }
+      const qp = new URLSearchParams(window.location.search);
+      if (qp.get('auth_error')) {
+        window.opener.postMessage({ type: 'calsnap_auth_error' }, window.location.origin);
+        window.close();
+        return;
+      }
+    }
 
-    // listen for the code coming back from the popup
-    window.addEventListener('message', async (event) => {
+    // ── Main window: handle session from hash (fallback full-page redirect) ──
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get('access_token')) {
+      storeSessionFromHash(hash);
+      window.history.replaceState({}, '', '/');
+    }
+
+    // ── Listen for session from popup ──
+    window.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.type !== 'calsnap_oauth') return;
-      const session = await exchangeCode(event.data.code);
-      if (session) {
+      if (event.data?.type === 'calsnap_session') {
+        _session = event.data.session;
         showAuthOverlay(false);
-        setUserUI(session);
+        setUserUI(_session);
       }
     });
 
     const session = await getSession();
-    if (session) {
-      showAuthOverlay(false);
-      setUserUI(session);
-    } else {
-      showAuthOverlay(true);
-    }
+    if (session) { showAuthOverlay(false); setUserUI(session); }
+    else          { showAuthOverlay(true); }
   }
 
   // ── SUPABASE FETCH (uses session JWT) ──
