@@ -23,6 +23,7 @@ Return your response as valid JSON only, with no extra text, in this exact forma
       "carbs_g": 35,
       "protein_g": 8,
       "fat_g": 7,
+      "sugar_g": 8,
       "glycemic_index": 65,
       "confidence": 0.92
     }
@@ -31,6 +32,7 @@ Return your response as valid JSON only, with no extra text, in this exact forma
 }
 
 - carbs_g, protein_g, fat_g: grams for the estimated portion, using Indian cooking methods (ghee, oil, coconut) for fat.
+- sugar_g: grams of ADDED/PROCESSED sugar only — refined white sugar, jaggery, honey, sugar syrups, or sweeteners added during cooking or manufacturing. Do NOT include naturally occurring sugars from whole fruits, milk, or whole grains.
 - glycemic_index: integer 0–100 using published GI values for Indian foods. Use mixed-meal GI when multiple ingredients combine (e.g. rice + dal lowers effective GI). If unknown, estimate conservatively.
 - Confidence is 0.0-1.0 based on how clearly you can identify the dish. Return only the JSON, no other text.`;
 
