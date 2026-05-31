@@ -76,6 +76,31 @@
     font-weight: 500;
   }
 
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-tab {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    padding: 7px 18px;
+    border-radius: 999px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    background: none;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active {
+    background: var(--green-light);
+    color: var(--green);
+    border-color: rgba(26,158,95,0.2);
+  }
+
   main {
     max-width: 680px;
     margin: 0 auto;
@@ -656,6 +681,195 @@
 
   .btn-retry:hover { background: #c03030; }
 
+  /* ── HISTORY ── */
+  .history-section { display: none; }
+  .history-section.visible { display: block; }
+
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .history-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 26px;
+  }
+
+  .history-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .history-empty span { font-size: 40px; display: block; margin-bottom: 14px; }
+
+  .meal-group {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .meal-group-header {
+    background: linear-gradient(135deg, var(--green), var(--green-mid));
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meal-group-date {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+
+  .meal-group-total {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meal-group-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 300;
+    width: 100%;
+  }
+
+  .history-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 640px;
+  }
+
+  .history-table thead tr {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .history-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .history-table tr:last-child td { border-bottom: none; }
+
+  .history-table tr:hover td { background: var(--surface); }
+
+  .ht-food-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ht-emoji {
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .ht-food-name { font-weight: 600; }
+  .ht-portion   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .ht-cal  { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ht-num  { font-variant-numeric: tabular-nums; color: var(--text); }
+  .ht-muted { color: var(--muted); }
+
+  .ht-gi-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .ht-gi-badge.low    { background: #e6f7ef; color: var(--green); }
+  .ht-gi-badge.medium { background: #fff7e6; color: #b45309; }
+  .ht-gi-badge.high   { background: #fff1f1; color: var(--red); }
+
+  .ht-conf-bar {
+    width: 60px;
+    height: 4px;
+    background: var(--surface);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 3px;
+  }
+
+  .ht-conf-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 999px;
+  }
+
+  .btn-refresh {
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-refresh:hover { border-color: var(--green); color: var(--green); }
+
+  .save-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text);
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 22px;
+    border-radius: 999px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999;
+    white-space: nowrap;
+  }
+
+  .save-toast.show { transform: translateX(-50%) translateY(0); }
+
   footer {
     text-align: center;
     padding: 32px 24px;
@@ -694,7 +908,10 @@
     <div class="logo-icon">🥗</div>
     <span class="logo-name">CalSnap</span>
   </div>
-  <span class="api-badge">Powered by GPT-4o</span>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('analyze')">Analyze</button>
+    <button class="nav-tab" onclick="showTab('history')">History</button>
+  </div>
 </header>
 
 <main>
@@ -785,7 +1002,19 @@
     <div class="error-msg" id="error-msg">Something went wrong. Please try again.</div>
     <button class="btn-retry" onclick="resetToUpload()">Try Again</button>
   </div>
+
+  <!-- History -->
+  <div class="history-section" id="history-section">
+    <div class="history-header">
+      <div class="history-title">Meal History</div>
+      <button class="btn-refresh" onclick="loadHistory()">↻ Refresh</button>
+    </div>
+    <div id="history-body"></div>
+  </div>
 </main>
+
+<!-- Save toast -->
+<div class="save-toast" id="save-toast">✓ Meal saved to history</div>
 
 <footer>
   CalSnap uses <a href="https://openai.com" target="_blank">OpenAI GPT-4o Vision</a> for food recognition.
@@ -796,6 +1025,41 @@
 <script>
   let currentImageBase64 = null;
   let currentImageType   = null;
+
+  // ── TABS ──
+  function showTab(tab) {
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.nav-tab[onclick="showTab('${tab}')"]`).classList.add('active');
+
+    const analyzeIds = ['upload-zone','preview-section','analyzing-card','results-section','error-card','format-error'];
+    analyzeIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.dataset.tabHidden = tab !== 'analyze' ? '1' : '';
+    });
+
+    const hist = document.getElementById('history-section');
+    if (tab === 'history') {
+      hist.classList.add('visible');
+      loadHistory();
+    } else {
+      hist.classList.remove('visible');
+    }
+
+    // restore analyze elements visibility based on their own classes
+    if (tab === 'analyze') {
+      analyzeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
+      });
+    } else {
+      analyzeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   // ── DRAG & DROP ──
   function handleDragOver(e) {
@@ -902,6 +1166,7 @@
       catch (_) { showTimeoutMessage(); return; }
 
       showResults(data);
+      saveMeal(data);           // fire-and-forget save
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
@@ -910,6 +1175,113 @@
         showError(err.message);
       }
     }
+  }
+
+  // ── SAVE MEAL (background) ──
+  async function saveMeal(data) {
+    try {
+      const res = await fetch('/api/save-meal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ foods: data.foods || [], notes: data.notes || '' }),
+      });
+      if (res.ok) showToast('✓ Meal saved to history');
+    } catch (_) { /* silent — saving is best-effort */ }
+  }
+
+  // ── TOAST ──
+  function showToast(msg) {
+    const t = document.getElementById('save-toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ── LOAD HISTORY ──
+  async function loadHistory() {
+    const body = document.getElementById('history-body');
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>';
+
+    try {
+      const res = await fetch('/api/meals');
+      if (!res.ok) throw new Error('Failed to load');
+      const meals = await res.json();
+
+      if (!meals.length) {
+        body.innerHTML = `<div class="history-empty">
+          <span>🍽️</span>
+          No meals saved yet. Analyze a photo to get started!
+        </div>`;
+        return;
+      }
+
+      body.innerHTML = meals.map(meal => buildMealGroup(meal)).join('');
+    } catch (err) {
+      body.innerHTML = `<div class="history-empty">
+        <span>⚠️</span>
+        Could not load history. Check that Supabase env vars are set.
+      </div>`;
+    }
+  }
+
+  function buildMealGroup(meal) {
+    const date = new Date(meal.created_at);
+    const dateStr = date.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    const timeStr = date.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+    const foods = meal.meal_foods || [];
+
+    const rows = foods.map(f => {
+      const gi = f.glycemic_index;
+      const giCls = !gi ? 'medium' : gi <= 55 ? 'low' : gi <= 69 ? 'medium' : 'high';
+      const giText = gi ? `GI ${gi}` : '—';
+      const conf = f.confidence != null ? Math.round(f.confidence * 100) : null;
+      return `<tr>
+        <td>
+          <div class="ht-food-cell">
+            <div class="ht-emoji">${esc(f.emoji || '🍽️')}</div>
+            <div>
+              <div class="ht-food-name">${esc(f.name)}</div>
+              <div class="ht-portion">${esc(f.portion || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td class="ht-cal">${f.calories ?? '—'}</td>
+        <td class="ht-num">${f.carbs_g ?? '—'}</td>
+        <td class="ht-num">${f.protein_g ?? '—'}</td>
+        <td class="ht-num">${f.fat_g ?? '—'}</td>
+        <td><span class="ht-gi-badge ${giCls}">${giText}</span></td>
+        <td>
+          ${conf != null ? `<div style="font-size:12px;font-weight:600">${conf}%</div>
+          <div class="ht-conf-bar"><div class="ht-conf-fill" style="width:${conf}%"></div></div>` : '—'}
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="meal-group">
+      <div class="meal-group-header">
+        <div>
+          <div class="meal-group-date">${dateStr} · ${timeStr}</div>
+          ${meal.notes ? `<div class="meal-group-meta">${esc(meal.notes)}</div>` : ''}
+        </div>
+        <div class="meal-group-total">${meal.total_calories ?? '—'} kcal</div>
+      </div>
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Food Item</th>
+              <th>Cal</th>
+              <th>Carbs (g)</th>
+              <th>Protein (g)</th>
+              <th>Fat (g)</th>
+              <th>GI</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
   }
 
   // ── TIMEOUT MESSAGE ──
@@ -931,7 +1303,7 @@
 
     const fracs = [carbKcal / total, protKcal / total, fatKcal / total];
     const colors = ['#f59e0b', '#3b82f6', '#8b5cf6'];
-    let offset = C / 4; // start at 12 o'clock
+    let offset = C / 4;
     const segs = fracs.map((f, i) => {
       const len = Math.max(f * C - gap, 0);
       const svg = len > 0
