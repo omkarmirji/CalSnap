@@ -876,7 +876,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
-    min-width: 640px;
+    min-width: 740px;
   }
 
   .history-table thead tr {
@@ -1517,6 +1517,7 @@
         carbs_g:            f.carbs_g   != null ? +Number(f.carbs_g).toFixed(1)   : null,
         protein_g:          f.protein_g != null ? +Number(f.protein_g).toFixed(1) : null,
         fat_g:              f.fat_g     != null ? +Number(f.fat_g).toFixed(1)     : null,
+        sugar_g:            f.sugar_g   != null ? +Number(f.sugar_g).toFixed(1)   : null,
         glycemic_index:     f.glycemic_index || null,
         confidence:         f.confidence != null ? +Number(f.confidence).toFixed(2) : null,
       }));
@@ -1586,6 +1587,7 @@
         <td class="ht-num">${f.carbs_g ?? '—'}</td>
         <td class="ht-num">${f.protein_g ?? '—'}</td>
         <td class="ht-num">${f.fat_g ?? '—'}</td>
+        <td class="ht-num">${f.sugar_g != null ? +(f.sugar_g / 4).toFixed(1) : '—'}</td>
         <td><span class="ht-gi-badge ${giCls}">${giText}</span></td>
         <td>
           ${conf != null ? `<div style="font-size:12px;font-weight:600">${conf}%</div>
@@ -1611,6 +1613,7 @@
               <th>Carbs (g)</th>
               <th>Protein (g)</th>
               <th>Fat (g)</th>
+              <th>Added Sugar (tsp)</th>
               <th>GI</th>
               <th>Confidence</th>
             </tr>
