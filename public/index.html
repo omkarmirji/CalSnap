@@ -1014,7 +1014,7 @@
             <span class="macro-chip carbs">C ${food.carbs_g ?? '—'}g</span>
             <span class="macro-chip protein">P ${food.protein_g ?? '—'}g</span>
             <span class="macro-chip fat">F ${food.fat_g ?? '—'}g</span>
-            <span class="macro-chip sugar">Sugar ${food.sugar_g != null ? +(food.sugar_g / 4).toFixed(1) + ' tsp' : '—'}</span>
+            <span class="macro-chip sugar">Added Sugar ${food.sugar_g != null ? +(food.sugar_g / 4).toFixed(1) + ' tsp' : '—'}</span>
             <span class="gi-badge ${giClass(food.glycemic_index)}">${giLabel(food.glycemic_index)}</span>
           </div>
         </div>
