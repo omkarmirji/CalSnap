@@ -1023,6 +1023,22 @@
 </footer>
 
 <script>
+  const SUPA_URL = 'https://qbgnjxrmimrtaqppctpe.supabase.co';
+  const SUPA_KEY = 'sb_publishable_FPmLBYzJTyI36Ql3mFCxtg_Y5TX-Ld0';
+
+  function supaFetch(path, method, body) {
+    return fetch(`${SUPA_URL}/rest/v1/${path}`, {
+      method,
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
   let currentImageBase64 = null;
   let currentImageType   = null;
 
@@ -1177,15 +1193,43 @@
     }
   }
 
-  // ── SAVE MEAL (background) ──
+  // ── SAVE MEAL (background, direct Supabase) ──
   async function saveMeal(data) {
     try {
-      const res = await fetch('/api/save-meal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ foods: data.foods || [], notes: data.notes || '' }),
+      const foods = data.foods || [];
+      const totalCalories  = foods.reduce((s, f) => s + (f.calories  || 0), 0);
+      const totalCarbs     = foods.reduce((s, f) => s + (f.carbs_g   || 0), 0);
+      const totalProtein   = foods.reduce((s, f) => s + (f.protein_g || 0), 0);
+      const totalFat       = foods.reduce((s, f) => s + (f.fat_g     || 0), 0);
+
+      const mealRes = await supaFetch('meals', 'POST', {
+        total_calories:  totalCalories,
+        total_carbs_g:   +totalCarbs.toFixed(1),
+        total_protein_g: +totalProtein.toFixed(1),
+        total_fat_g:     +totalFat.toFixed(1),
+        notes:           data.notes || null,
+        food_count:      foods.length,
       });
-      if (res.ok) showToast('✓ Meal saved to history');
+      if (!mealRes.ok) return;
+
+      const [meal] = await mealRes.json();
+
+      const foodRows = foods.map(f => ({
+        meal_id:            meal.id,
+        name:               f.name,
+        emoji:              f.emoji              || null,
+        portion:            f.portion            || null,
+        quantity_reasoning: f.quantity_reasoning || null,
+        calories:           f.calories           || null,
+        carbs_g:            f.carbs_g   != null ? +Number(f.carbs_g).toFixed(1)   : null,
+        protein_g:          f.protein_g != null ? +Number(f.protein_g).toFixed(1) : null,
+        fat_g:              f.fat_g     != null ? +Number(f.fat_g).toFixed(1)     : null,
+        glycemic_index:     f.glycemic_index || null,
+        confidence:         f.confidence != null ? +Number(f.confidence).toFixed(2) : null,
+      }));
+
+      const foodsRes = await supaFetch('meal_foods', 'POST', foodRows);
+      if (foodsRes.ok) showToast('✓ Meal saved to history');
     } catch (_) { /* silent — saving is best-effort */ }
   }
 
@@ -1197,13 +1241,13 @@
     setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  // ── LOAD HISTORY ──
+  // ── LOAD HISTORY (direct Supabase) ──
   async function loadHistory() {
     const body = document.getElementById('history-body');
     body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>';
 
     try {
-      const res = await fetch('/api/meals');
+      const res = await supaFetch('meals?select=*,meal_foods(*)&order=created_at.desc', 'GET');
       if (!res.ok) throw new Error('Failed to load');
       const meals = await res.json();
 
