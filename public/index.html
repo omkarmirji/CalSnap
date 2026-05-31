@@ -1194,27 +1194,44 @@
     const url = `${SUPA_URL}/auth/v1/authorize?provider=${provider}`
       + `&code_challenge=${challenge}&code_challenge_method=S256`
       + `&redirect_to=${encodeURIComponent(redirectTo)}`;
-    window.location.href = url;
+
+    // open in popup so the main CalSnap URL never changes
+    const popup = window.open(url, 'calsnap_oauth', 'width=520,height=620,left=200,top=100');
+    if (!popup) {
+      // popup blocked — fall back to redirect
+      window.location.href = url;
+    }
   }
 
+  // called when the popup lands back on our origin after OAuth
   async function handleOAuthCallback() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     if (!code) return false;
 
+    // if we're inside a popup, send the code to the parent and close
+    if (window.opener && window.opener !== window) {
+      window.opener.postMessage({ type: 'calsnap_oauth', code }, window.location.origin);
+      window.close();
+      return true;
+    }
+
+    // fallback: full-page redirect — exchange code directly
+    await exchangeCode(code);
+    window.history.replaceState({}, '', '/');
+    return true;
+  }
+
+  async function exchangeCode(code) {
     const verifier = sessionStorage.getItem('pkce_verifier');
     sessionStorage.removeItem('pkce_verifier');
-
     const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
       headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
     });
-    if (!res.ok) return false;
-
-    storeSession(await res.json());
-    window.history.replaceState({}, '', '/');
-    return true;
+    if (!res.ok) return null;
+    return storeSession(await res.json());
   }
 
   async function refreshSession(refreshToken) {
@@ -1281,8 +1298,21 @@
   }
 
   async function initAuth() {
-    // handle redirect back from Google
-    const wasCallback = await handleOAuthCallback();
+    // if this page loaded inside the OAuth popup, hand code to parent and close
+    const wasPopupCallback = await handleOAuthCallback();
+    if (wasPopupCallback && window.opener) return;
+
+    // listen for the code coming back from the popup
+    window.addEventListener('message', async (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'calsnap_oauth') return;
+      const session = await exchangeCode(event.data.code);
+      if (session) {
+        showAuthOverlay(false);
+        setUserUI(session);
+      }
+    });
+
     const session = await getSession();
     if (session) {
       showAuthOverlay(false);
